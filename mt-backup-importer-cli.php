@@ -6,9 +6,6 @@ if (!class_exists('CLI_Import')) {
 
 cli_import_set_hostname();
 
-error_reporting(E_ALL ^ E_NOTICE);
-
-
 /**
  * Command Line importer for moveable type backups
  * 

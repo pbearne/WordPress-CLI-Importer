@@ -5,7 +5,7 @@ if (!class_exists('CLI_Import')) {
 }
 
 cli_import_set_hostname();
-
+error_reporting(E_ALL ^ E_NOTICE);
 /**
  * Command Line importer for moveable type backups
  * 
@@ -18,6 +18,8 @@ cli_import_set_hostname();
  *  - Fix issue with only one category being imported
  *  - Support different import directory for easier automation on MS installs
  * 		- Not just /upload_dir/import
+ * 
+ * Based on MT_Backup_Importer http://wordpress.org/extend/plugins/movable-type-backup-importer/
  *
  */
 class MT_Backup_Importer_CLI extends CLI_Import{
@@ -382,19 +384,25 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 
 	}
 
+	/**
+	 * Import MT formatted categories to posts
+	 * These are typically at the end of the file
+	 *
+	 * @param string $path 
+	 * @param string $placement placement array
+	 * @param string $mappings 
+	 * @return void
+	 */
 	function _import_mt_placement($path, $placement, &$mappings) {
-
 		$id = $placement->attributes()->id;
 		$category_id = (string) $placement->attributes()->category_id;
 		$post_id = (string) $placement->attributes()->entry_id;
 		$is_primary = $placement->attributes()->is_primary; // 1 = true, 0 = false
 
-		wp_set_post_categories($mappings['posts'][$post_id], array($mappings['categories'][$category_id]));
-
+		wp_set_object_terms($mappings['posts'][$post_id], array($mappings['categories'][$category_id]),  'category', true);
 	}
 
 	function _import_mt_objectasset($path, $objectasset, &$mappings) {
-
 		$id = (string) $objectasset->attributes()->id;
 		$asset_id = (string) $objectasset->attributes()->asset_id;
 		$embedded = (string) $objectasset->attributes()->embedded;
@@ -403,7 +411,6 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		if ($object_ds == 'entry') {
 			wp_update_post(array('ID' => $mappings['assets'][$asset_id], 'post_parent' => $mappings['posts'][$object_id]));
 		}
-
 	}
 
 	function _import_mt_comment($path, $comment, &$mappings) {
@@ -528,9 +535,9 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 	 * image (guessed), it will be removed. If the link points to image of the current domain,
 	 * but it doesn't exist, the script tries to download the image and returns the correct
 	 * link.
-     *
-     * @param $link Link URL
-     * @return string corrected link markup
+	 *
+	 * @param $link Link URL
+	 * @return string corrected link markup
 	 */
 	function _replace_mt_link($link) {
 		$siteurl_length = strlen($this->_siteurl);

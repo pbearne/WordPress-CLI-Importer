@@ -69,7 +69,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$import_dir = $this->args->import_dir;
 		$basedir = $directory['basedir'] . '/import/';
 		$this->_path = trailingslashit($directory['path']);
-        $this->_uploadurl = trailingslashit($directory['url']);
+		$this->_uploadurl = trailingslashit($directory['url']);
 		
 		// this is the path to the first backup file, but we need
 		// to look for other chunks as well

@@ -34,9 +34,9 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 	protected $_autosizing = false;
 	protected $_content_width_upscale = 500;
 	protected $_content_width = 550;
-    protected $_slug_separator = '-'; 
-    protected $_broken = array();
-    protected $_uploadurl = '';
+	protected $_slug_separator = '-'; 
+	protected $_broken = array();
+	protected $_uploadurl = '';
 	
 	function __construct() {		
 		// Grab command line arguments

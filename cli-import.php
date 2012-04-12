@@ -2,6 +2,8 @@
 
 require_once('config.php');
 
+cli_import_set_hostname();
+
 if ( !file_exists( CLI_WP_ROOT_DIRECTORY . '/wp-load.php' ) ) {
 	die( sprintf( "Please set CLI_WP_ROOT_DIRECTORY to the ABSPATH of your WordPress install. Could not find %s\n", CLI_WP_ROOT_DIRECTORY . '/wp-load.php' ) );
 }

@@ -4,8 +4,6 @@ if (!class_exists('CLI_Import')) {
 	include_once('cli-import.php');
 }
 
-cli_import_set_hostname();
-error_reporting(E_ALL ^ E_NOTICE);
 /**
  * Command Line importer for moveable type backups
  * 

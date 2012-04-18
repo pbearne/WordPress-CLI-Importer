@@ -538,29 +538,44 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 	 * @return string corrected link markup
 	 */
 	function _replace_mt_link($link) {
-		$siteurl_length = strlen($this->_siteurl);
-		if (substr($link[1], 0, $siteurl_length) == $this->_siteurl) {
-			$filename = urldecode(basename($link[1]));
-			$originals = glob($this->_path . '/*-' . $filename);
-			if (sizeof($originals) > 0) {
-				$new = basename($originals[0]);
-				$replace = $this->_uploadurl . $new;
-				if (strpos($link[1], 'assets_c') > 0 && substr($new,-5) == '.html') {
-					return $link[2];
+		// Only care about /uploads files and /assets
+		// Other linked content should just be other posts. 
+		// Files not in assets_c or upload should have been defined in XML doc
+		if (strpos($link[1], '/assets_c/') !== false || strpos($link[1], '/upload/') !== false) {
+			$siteurl_length = strlen($this->_siteurl);
+			if (substr($link[1], 0, $siteurl_length) == $this->_siteurl) {
+				$filename = urldecode(basename($link[1]));
+				$originals = glob($this->_path . '/*-' . $filename);
+				if (sizeof($originals) > 0) {
+					$new = basename($originals[0]);
+					$replace = $this->_uploadurl . $new;
+					if (strpos($link[1], 'assets_c') > 0 && substr($new,-5) == '.html') {
+						return $link[2];
+					} else {
+						return '<a href="' . $replace . '">' . $link[2] . '</a>';
+					}
 				} else {
-					return '<a href="' . $replace . '">' . $link[2] . '</a>';
-				}
-			} else {
-				$replace = str_replace($this->_siteurl, get_bloginfo('url') . '/', $link[1]);
-				if (substr($replace, -5) == '.html' || strpos(basename($link[1]), '.') === false) {
-					return '<a href="' . $replace . '">' . $link[2] . '</a>';
-				}
-				$url = $this->_download_broken_url($link[1]);
-				if ($url === null) {
-					$this->debug_msg('BROKEN: '.$link[1]);
-                    $this->_broken[] = array('type' => 'link', 'url' => $link[1]);
-				} else {
-					return '<a href="' . $url . '">' . $link[2] . '</a>';
+					$replace = str_replace($this->_siteurl, get_bloginfo('url') . '/', $link[1]);
+					if (substr($replace, -5) == '.html' || strpos(basename($link[1]), '.') === false) {
+						return '<a href="' . $replace . '">' . $link[2] . '</a>';
+					}
+				
+					// Some blogs tend to do the above with .php, attempt to guess the URL .jpg
+					// Some cleanup will/is done after import as a separate script
+					if (strpos($link[1], '.php') !== false) {
+						$jpg_url = str_replace('.php', '.jpg.', $link[1]);
+						$headers = @get_headers($jpg_url);
+						if ($headers && preg_match("|200|", $headers[0])) {
+							$link[1] = $jpg_url;
+						}
+					}
+					$url = $this->_download_broken_url($link[1]);
+					if ($url === null) {
+						$this->debug_msg('BROKEN: '.$link[1]);
+	                    $this->_broken[] = array('type' => 'link', 'url' => $link[1]);
+					} else {
+						return '<a href="' . $url . '">' . $link[2] . '</a>';
+					}
 				}
 			}
 		}

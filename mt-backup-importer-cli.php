@@ -170,7 +170,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$password = (string) $user->attributes()->password;
 		$password = strlen($password) > 0 ? $password : wp_generate_password();
 		$created = (string) $user->attributes()->created_on;
-		$role = $status == 1 ? 'editor' : 'subscriber';
+		$role = $status == 'subscriber'; //1 ? 'editor' : 'subscriber';
 
 		$data = array(
 			'user_pass' => $password,

@@ -105,6 +105,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		
 		// remove bad characters
 		$content = str_replace(array("", ""), array("",""), $content);
+		$content = preg_replace('/\x10/', '', $content);
 		
 		// remove unused log entries
 		$content = preg_replace("%(<log.*?>.*?<\/log.*?>)%is", '', $content);
@@ -206,22 +207,24 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			$data['user_pass'] = wp_generate_password();
 		}
 
-        if (function_exists('mt_import_user_data')) {
-            mt_import_user_data($data);
-        }
-
 		// check if user already exists
 		$user_id = username_exists($username);
 		if (!$user_id) {
 			$user_id = wp_insert_user($data);
 		}
 		
-		// add author role to user for this blog
-		global $current_blog;
-		if (function_exists('add_user_to_blog')) {
-			add_user_to_blog($current_blog->blog_id, $user_id, 'editor');
-		}
+		$blog_id = $this->args->blog;
 		
+		$user = new WP_User($user_id);
+		if (!get_user_meta($user_id, 'primary_blog', true)) {
+			update_user_meta($user_id, 'primary_blog', $blog_id);
+			$details = get_blog_details($blog_id);
+			update_user_meta($user_id, 'source_domain', $details->domain);
+		}
+
+		$user->set_role($role);
+		wp_cache_delete( $user_id, 'users' );
+				
 		// add mapping
 		$mappings['user'][(string)$id] = $user_id;
 		
@@ -396,8 +399,15 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$category_id = (string) $placement->attributes()->category_id;
 		$post_id = (string) $placement->attributes()->entry_id;
 		$is_primary = $placement->attributes()->is_primary; // 1 = true, 0 = false
-
-		wp_set_object_terms($mappings['posts'][$post_id], array($mappings['categories'][$category_id]),  'category', true);
+		
+		// Dont append categories if the current category is 'uncategorized'
+		$append = true;
+		$current_categories = wp_get_object_terms($mappings['posts'][$post_id], 'category', array('fields' => 'names'));
+		if ((empty($current_categories)) || (is_array($current_categories) && !empty($current_categories[0]) && $current_categories[0] == 'Uncategorized')) {
+			$append = false;
+		}
+				
+		wp_set_object_terms($mappings['posts'][$post_id], array($mappings['categories'][$category_id]),  'category', $append);
 	}
 
 	function _import_mt_objectasset($path, $objectasset, &$mappings) {

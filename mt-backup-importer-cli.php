@@ -247,16 +247,32 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		}
 		
 		$attachment = array(
-		     'post_mime_type' => $mimetype,
-		     'post_title' => preg_replace('/\.[^.]+$/', '', $title),
 		     'post_content' => '',
 		     'post_status' => 'inherit',
 			 'post_author' => isset($mappings['user'][$author]) ? $mappings['user'][$author] : null,
 		);
 		
+		// Grab the mime type from the file extension if it doesnt exist
+		if (!empty($mimetype)) {
+			$attachment['post_mime_type'] = $mimetype;
+		}
+		else if ($info = wp_check_filetype($filename)) {
+			$attachment['post_mime_type'] = $info['type'];
+		}
 		
+		$title = preg_replace('/\.[^.]+$/', '', $title);
+		if (!empty($title)) {
+			$attachment['post_title'] = $title;
+		}
+		
+		// This is really how they are exported
+		$filename = $id.'-'.$filename;
+		
+		// Move the file into the uploads directory for this site
+		$directory = wp_upload_dir();
+		rename(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename, $this->_path.$filename);
+		$filepath = $this->_path.$filename;
 
-		$filepath = $path . '/' . $id . '-' . $filename;
 		$attach_id = wp_insert_attachment($attachment, $filepath, null);
 		require_once(ABSPATH . 'wp-admin/includes/image.php');
 		$attach_data = wp_generate_attachment_metadata($attach_id, $filepath);

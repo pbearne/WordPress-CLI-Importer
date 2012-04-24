@@ -134,7 +134,6 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 				$errors = libxml_get_errors();
 
 			    foreach ($errors as $error) {
-					error_log(print_r($error,1));
 					$this->debug_msg('ERROR: Unable to Parse '.$backupxml.', libxml error code '.$error->code);
 			    }
 

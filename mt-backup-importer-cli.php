@@ -105,13 +105,13 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		
 		// remove bad characters
 		$content = str_replace(array("", ""), array("",""), $content);
-		$content = preg_replace('/\x10/', '', $content);
 		
 		// remove unused log entries
 		$content = preg_replace("%(<log.*?>.*?<\/log.*?>)%is", '', $content);
 		
 		// Force UTF8
 		$content = utf8_encode($content);
+		$content = self::_strip_invalid_xml($content);
 		
 		// write temporary clean xml file
 		file_put_contents($basedir . 'clean-' . $backup, $content);
@@ -501,6 +501,8 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 	}
 
     function _download_broken_url($url) {
+		return null;
+	
 		$filename = 'i-' . md5($url) . '-' . urldecode(basename($url));
 		if (!is_file($this->_uploadurl . $filename)) {
 			$this->debug_msg('Downloading broken resource: '.$url);
@@ -643,6 +645,37 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		);
 	}
 	
+	
+	/**
+	 * Removes invalid XML characters for simpleXML Parsing
+	 * 
+	 * @author http://stackoverflow.com/users/394435/jhong
+	 * @see http://stackoverflow.com/a/3466049 
+	 */
+	protected static function _strip_invalid_xml($value) {
+		$ret = '';
+		$current;
+		if (empty($value)) {
+    		return $ret;
+ 		}
+
+		$length = strlen($value);
+		for ($i=0; $i < $length; $i++) {
+			$current = ord($value{$i});
+			if (($current == 0x9) ||
+				($current == 0xA) ||
+				($current == 0xD) ||
+				(($current >= 0x20) && ($current <= 0xD7FF)) ||
+				(($current >= 0xE000) && ($current <= 0xFFFD)) ||
+				(($current >= 0x10000) && ($current <= 0x10FFFF))) {
+					$ret .= chr($current);
+			}
+			else {
+				$ret .= ' ';
+			}
+		}
+		return $ret;
+	}
 }
 
 $importer = new MT_Backup_Importer_CLI;

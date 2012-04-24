@@ -500,9 +500,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 
 	}
 
-    function _download_broken_url($url) {
-		return null;
-	
+    function _download_broken_url($url) {	
 		$filename = 'i-' . md5($url) . '-' . urldecode(basename($url));
 		if (!is_file($this->_uploadurl . $filename)) {
 			$this->debug_msg('Downloading broken resource: '.$url);

@@ -104,14 +104,16 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$content = file_get_contents($basedir . $backup);
 		
 		// remove bad characters
-		$content = str_replace(array("", ""), array("",""), $content);
+		$content = str_replace(array("", "", '&#176'), array("","", '&#176;'), $content);
 		
 		// remove unused log entries
 		$content = preg_replace("%(<log.*?>.*?<\/log.*?>)%is", '', $content);
 		
-		// Force UTF8
-		$content = utf8_encode($content);
+		// Force UTF8		
+		$content = iconv('ISO-8859-1', 'UTF-8//TRANSLIT', $content);
 		$content = self::_strip_invalid_xml($content);
+		
+		$content = self::_fix_incorrect_html_entities($content);
 		
 		// write temporary clean xml file
 		file_put_contents($basedir . 'clean-' . $backup, $content);
@@ -132,6 +134,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 				$errors = libxml_get_errors();
 
 			    foreach ($errors as $error) {
+					error_log(print_r($error,1));
 					$this->debug_msg('ERROR: Unable to Parse '.$backupxml.', libxml error code '.$error->code);
 			    }
 
@@ -500,7 +503,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 
 	}
 
-    function _download_broken_url($url) {	
+    function _download_broken_url($url) {		
 		$filename = 'i-' . md5($url) . '-' . urldecode(basename($url));
 		if (!is_file($this->_uploadurl . $filename)) {
 			$this->debug_msg('Downloading broken resource: '.$url);
@@ -673,6 +676,27 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			}
 		}
 		return $ret;
+	}
+	
+	/**
+	 * Fix incorrect html entities if a bad data set is received
+	 *
+	 * @param string $content 
+	 * @return string Content
+	 */
+	protected static function _fix_incorrect_html_entities($content) {
+		// fixes anthing like &#176C which may be ok in browsers but rejected by XML parsers
+		// needs to be &#176;C
+		if (preg_match_all('/(&#[0-9]+)(.)/', $content, $matches)) {
+			if (is_array($matches[1]) && is_array($matches[2])) {
+				foreach ($matches[1] as $key => $value) {
+					if ($matches[2][$key] != ';') {
+						$content = str_replace($value, $value.';', $content);
+					}
+				}
+			}
+		}
+		return $content;
 	}
 }
 

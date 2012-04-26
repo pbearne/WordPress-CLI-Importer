@@ -690,11 +690,23 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			if (is_array($matches[1]) && is_array($matches[2])) {
 				foreach ($matches[1] as $key => $value) {
 					if ($matches[2][$key] != ';') {
-						$content = str_replace($value, $value.';', $content);
+						$content = str_replace($value.$matches[2][$key], $value.';'.$matches[2][$key], $content);
 					}
 				}
 			}
 		}
+		
+		// XML Specific
+		if (preg_match_all('/(&#x22B8)(.)/', $content, $matches)) {
+			if (is_array($matches[1]) && is_array($matches[2])) {
+				foreach ($matches[1] as $key => $value) {
+					if ($matches[2][$key] != ';') {
+						$content = str_replace($value.$matches[2][$key], $value.';'.$matches[2][$key], $content);
+					}
+				}
+			}
+		}
+		
 		return $content;
 	}
 }

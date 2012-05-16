@@ -183,7 +183,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			'user_registered' => date('Y-m-d H:i:s', strtotime($created)),
 			'role' => $role
 		);
-		
+				
 		// Users with "ldaprename" prefix are not handled correctly
 		if (substr($username,0,10) == 'ldaprename') {
 			$user_id = username_exists(substr($username,10));
@@ -208,11 +208,16 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		if (trim($data['user_pass']) == '' || trim($data['user_pass']) == '(none)') {
 			$data['user_pass'] = wp_generate_password();
 		}
+		
+		
 
 		// check if user already exists
 		$user_id = username_exists($username);
 		if (!$user_id) {
-			$user_id = wp_insert_user($data);
+			$user_id = email_exists($data['user_email']);
+			if (empty($data['user_email']) || !$user_id) {
+				$user_id = wp_insert_user($data);
+			}
 		}
 		
 		$blog_id = $this->args->blog;
@@ -467,6 +472,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			if (!comment_exists($comment['comment_author'], $comment['comment_date'])) {
 				$comment['comment_post_ID'] = $mappings['posts'][$entry_id];
 				$comment = wp_filter_comment($comment);
+				$comment = apply_filters('mtbi_pre_insert_comment', $comment);
 				wp_insert_comment($comment);
 			}
 		}
@@ -615,11 +621,12 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$post = get_object_vars($post);
 		$post = add_magic_quotes($post);
 		$post = (object) $post;
-
+		$post_id = false; 
 		if ( $post_id = post_exists($post->post_title, '', $post->post_date) ) {
 			$this->debug_msg('Post \''.stripslashes($post->post_title).'\' already exists.');
 		} else {
 			$this->debug_msg('Importing post \''.stripslashes($post->post_title).'\'');
+			$post = apply_filters('mtbi_pre_insert_post', $post);
 			$post_id = wp_insert_post($post);
 			if (is_wp_error($post_id)) {
 				$this->debug_msg('ERROR: '.$post_id->get_error_message());

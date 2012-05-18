@@ -247,6 +247,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$entry_id = (string) $asset->attributes()->entry_id;
 		$title = strlen($label) > 0 ? $label : $filename;
 		$author = (string) $asset->attributes()->created_by;
+		error_log(print_r($asset->attributes(),1));
 
 		// Skip, if it's a thumbnail
 		if ($parent > 0) {
@@ -297,66 +298,72 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 	}
 
 	function _import_mt_post($path, $post, &$mappings) {
-
 		$id = $post->attributes()->id;
-		$allow_comments = $post->attributes()->allow_comments;
-		$allow_pings = $post->attributes()->allow_pings;
-		$atom_id = $post->attributes()->atom_id;
-		$author_id = (string) $post->attributes()->author_id;
-		$authored_on = date('Y-m-d H:i:s', strtotime($post->attributes()->authored_on));
-		$basename = $post->attributes()->basename;
-		$comment_count = $post->attributes()->comment_count;
-		$class = $post->attributes()->class;
-		$created_by = $post->attributes()->created_by;
-		$created_on = date('Y-m-d H:i:s', strtotime($post->attributes()->created_on));
-		$authored_on = date('Y-m-d H:i:s', strtotime($post->attributes()->authored_on));
-		$modified_by = $post->attributes()->modified_by;
-		$modified_on = date('Y-m-d H:i:s', strtotime($post->attributes()->modified_on));
-		$ping_count = $post->attributes()->ping_count;
-		$status = $post->attributes()->status;
 		$title = $post->attributes()->title;
-		$weeknumber = $post->attributes()->weeknumber;
-		$content = (string) $post->text;
-		$search = array();
-		$replace = array();
-		$preg_search = array();
-		$preg_replace = array();
-
-        // support for extended content
-        if ('' != trim($post->text_more)) {
-            $extended = (string) $post->text_more;
-            $content = $content . "\n<!--more-->\n" . $extended;
-        }
-
-		if (strlen($content) > 0) {
-			// replace image tags
-			$pattern = '/<img.*?src="(.*?)"(.*?)>/is';
-			$content = preg_replace_callback($pattern, array('self', '_replace_mt_image'), $content);
-			
-			// replace links
-			$pattern = '/<a.*?href="(.*?)".*?>(.*?)<\/a>/is';
-			$content = preg_replace_callback($pattern, array('self', '_replace_mt_link'), $content);
-		}
-
-		$post = new StdClass;
-		$post->post_content = $content;
-		$post->post_author = isset($mappings['user'][$author_id]) ? $mappings['user'][$author_id] : null;
-		$post->post_title = $title;
-		$post->post_name = str_replace('_', $this->_slug_separator, $basename);
-		$post->post_status = $status == 2 ? 'publish' : null; // TODO
-		$post->post_modified = $modified_on;
-		$post->post_modified_gmt = get_gmt_from_date($modified_on);
-		$post->post_date = $authored_on;
-		$post->post_date_gmt = get_gmt_from_date($authored_on);
-		$post->ping_status = $allow_pings == 1 ? true : false;
-		$post->comment_status = $allow_comments == 1 ? 'open' : 'closed';
+		$authored_on = date('Y-m-d H:i:s', strtotime($post->attributes()->authored_on));
 		
-		// Tell Wordpress that the content is already filtered to allow embed, iframe, etc.
-		// Credits to: http://pp19dd.com/2010/06/unfiltered-wp_insert_post/
-		$post->filter = true;
-        $post_id = $this->_save_post($post);
-        $mappings['posts'][(string)$id] = $post_id;
+		if ( $post_id = post_exists($title, '', $authored_on) ) {
+			$this->debug_msg('Post \''.stripslashes($title).'\' already exists.');
+		}
+		else {
+			$allow_comments = $post->attributes()->allow_comments;
+			$allow_pings = $post->attributes()->allow_pings;
+			$atom_id = $post->attributes()->atom_id;
+			$author_id = (string) $post->attributes()->author_id;
+			$basename = $post->attributes()->basename;
+			$comment_count = $post->attributes()->comment_count;
+			$class = $post->attributes()->class;
+			$created_by = $post->attributes()->created_by;
+			$created_on = date('Y-m-d H:i:s', strtotime($post->attributes()->created_on));
+			$modified_by = $post->attributes()->modified_by;
+			$modified_on = date('Y-m-d H:i:s', strtotime($post->attributes()->modified_on));
+			$ping_count = $post->attributes()->ping_count;
+			$status = $post->attributes()->status;
 
+			$weeknumber = $post->attributes()->weeknumber;
+			$content = (string) $post->text;
+			$search = array();
+			$replace = array();
+			$preg_search = array();
+			$preg_replace = array();
+
+	        // support for extended content
+	        if ('' != trim($post->text_more)) {
+	            $extended = (string) $post->text_more;
+	            $content = $content . "\n<!--more-->\n" . $extended;
+	        }
+
+
+			if (strlen($content) > 0) {
+				// replace image tags
+				$pattern = '/<img.*?src="(.*?)"(.*?)>/is';
+				$content = preg_replace_callback($pattern, array('self', '_replace_mt_image'), $content);
+			
+				// replace links
+				$pattern = '/<a.*?href="(.*?)".*?>(.*?)<\/a>/is';
+				$content = preg_replace_callback($pattern, array('self', '_replace_mt_link'), $content);
+			}
+
+			$post = new StdClass;
+			$post->post_content = $content;
+			$post->post_author = isset($mappings['user'][$author_id]) ? $mappings['user'][$author_id] : null;
+			$post->post_title = $title;
+			$post->post_name = str_replace('_', $this->_slug_separator, $basename);
+			$post->post_status = $status == 2 ? 'publish' : null; // TODO
+			$post->post_modified = $modified_on;
+			$post->post_modified_gmt = get_gmt_from_date($modified_on);
+			$post->post_date = $authored_on;
+			$post->post_date_gmt = get_gmt_from_date($authored_on);
+			$post->ping_status = $allow_pings == 1 ? true : false;
+			$post->comment_status = $allow_comments == 1 ? 'open' : 'closed';
+		
+			// Tell Wordpress that the content is already filtered to allow embed, iframe, etc.
+			// Credits to: http://pp19dd.com/2010/06/unfiltered-wp_insert_post/
+			$post->filter = true;
+	        $post_id = $this->_save_post($post);
+		}
+		
+        $mappings['posts'][(string)$id] = $post_id;
 	}
 
 	function _import_mt_tag($path, $tag, &$mappings) {
@@ -621,18 +628,15 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$post = get_object_vars($post);
 		$post = add_magic_quotes($post);
 		$post = (object) $post;
-		$post_id = false; 
-		if ( $post_id = post_exists($post->post_title, '', $post->post_date) ) {
-			$this->debug_msg('Post \''.stripslashes($post->post_title).'\' already exists.');
-		} else {
-			$this->debug_msg('Importing post \''.stripslashes($post->post_title).'\'');
-			$post = apply_filters('mtbi_pre_insert_post', $post);
-			$post_id = wp_insert_post($post);
-			if (is_wp_error($post_id)) {
-				$this->debug_msg('ERROR: '.$post_id->get_error_message());
-				return $post_id;
-			}
+		$post_id = 0; 
+		$this->debug_msg('Importing post \''.stripslashes($post->post_title).'\'');
+		$post = apply_filters('mtbi_pre_insert_post', $post);
+		$post_id = wp_insert_post($post);
+		if (is_wp_error($post_id)) {
+			$this->debug_msg('ERROR: '.$post_id->get_error_message());
+			return $post_id;
 		}
+
 		return $post_id;
 	}
 	

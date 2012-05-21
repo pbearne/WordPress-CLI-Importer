@@ -35,6 +35,10 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 	protected $_broken = array();
 	protected $_uploadurl = '';
 	
+	// Catchup specific
+	// @TODO Worthwhile to put this as a construct param?
+	protected $last_import_time = 1334808000; // April 19 2012 00:00 EST
+	
 	function __construct() {		
 		// Grab command line arguments
 		parent::__construct();
@@ -238,7 +242,6 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 	}
 
 	function _import_mt_asset($path, $asset, &$mappings) {
-
 		$id = (string) $asset->attributes()->id;
 		$filename = (string) $asset->attributes()->file_name;
 		$mimetype = (string) $asset->attributes()->mime_type;
@@ -247,17 +250,32 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$entry_id = (string) $asset->attributes()->entry_id;
 		$title = strlen($label) > 0 ? $label : $filename;
 		$author = (string) $asset->attributes()->created_by;
-		error_log(print_r($asset->attributes(),1));
-
+		$created_on = date('Y-m-d H:i:s', strtotime($asset->attributes()->created_on));
+		$modified_on = date('Y-m-d H:i:s', strtotime($asset->attributes()->modified_on));
+		
+		
+		$directory = wp_upload_dir();		
+		$check_dir = trailingslashit(str_replace($directory['subdir'], '/2012/04', $directory['path']));
+		$filename = $id.'-'.$filename;
+		
+		// Checks files from previous import, skip if it exists
+		if (file_exists($check_dir.$filename)) {
+			return;
+		}
+		
 		// Skip, if it's a thumbnail
 		if ($parent > 0) {
 			return;
 		}
 		
 		$attachment = array(
-		     'post_content' => '',
-		     'post_status' => 'inherit',
-			 'post_author' => isset($mappings['user'][$author]) ? $mappings['user'][$author] : null,
+		    'post_content' => '',
+		    'post_status' => 'inherit',
+			'post_author' => isset($mappings['user'][$author]) ? $mappings['user'][$author] : null,
+			'post_date' => $created_on,
+			'psot_date_gmt' =>get_gmt_from_date($created_on),
+			'post_modified' => $modified_on,
+			'post_modified_gmt' => get_gmt_from_date($modified_on),
 		);
 		
 		// Grab the mime type from the file extension if it doesnt exist
@@ -452,35 +470,45 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 	}
 
 	function _import_mt_comment($path, $comment, &$mappings) {
-
-		$id = (string) $comment->attributes()->id;
-		$author = (string) $comment->attributes()->author;
-		$created_on = date('Y-m-d H:i:s', strtotime($comment->attributes()->created_on));
-		$entry_id = (string) $comment->attributes()->entry_id;
-		$email = (string) $comment->attributes()->email;
-		$url = (string) $comment->attributes()->url;
-		$ip = (string) $comment->attributes()->ip;
+		
 		$junk_status = (string) $comment->attributes()->junk_status; // 1 = OK
-		$last_moved_on = date('Y-m-d H:i:s', strtotime($comment->attributes()->last_moved_on));
-		$visible = (string) $comment->attributes()->visible;
-		$text = (string) $comment->text;
 
 		if ($junk_status == 1) {
-			$comment = array();
-			$comment['comment_author'] = $author;
-			$comment['comment_author_email'] = $email;
-			$comment['comment_date'] = $created_on;
-			$comment['comment_status'] = 'open';
-			$comment['comment_author_IP'] = $ip;
-			$comment['comment_author_url'] = $url;
-			$comment['comment_content'] = $text;
+			
+			$id = (string) $comment->attributes()->id;
+			$author = (string) $comment->attributes()->author;
+			$created_on_time = strtotime($comment->attributes()->created_on);
+			$created_on = date('Y-m-d H:i:s', $created_on_time);
+			
+			if ($created_on_time > $this->last_import_time && !comment_exists($author, $created_on)) {
+				
+				$entry_id = (string) $comment->attributes()->entry_id;
+				$email = (string) $comment->attributes()->email;
+				$url = (string) $comment->attributes()->url;
+				$ip = (string) $comment->attributes()->ip;
+				$last_moved_on = date('Y-m-d H:i:s', strtotime($comment->attributes()->last_moved_on));
+				$visible = (string) $comment->attributes()->visible;
+				$text = (string) $comment->text;
+								
+				$comment = array();
+				$comment['comment_author'] = $author;
+				$comment['comment_author_email'] = $email;
+				$comment['comment_date'] = $created_on;
+				$comment['comment_status'] = 'open';
+				$comment['comment_author_IP'] = $ip;
+				$comment['comment_author_url'] = $url;
+				$comment['comment_content'] = $text;
 
-			$comment = add_magic_quotes($comment);
-			if (!comment_exists($comment['comment_author'], $comment['comment_date'])) {
+				$comment = add_magic_quotes($comment);
+			
 				$comment['comment_post_ID'] = $mappings['posts'][$entry_id];
 				$comment = wp_filter_comment($comment);
 				$comment = apply_filters('mtbi_pre_insert_comment', $comment);
 				wp_insert_comment($comment);
+			}
+			else {
+				error_log('Comment \''.stripslashes($id).'\' already exists.');
+				$this->debug_msg('Comment \''.stripslashes($id).'\' already exists.');
 			}
 		}
 

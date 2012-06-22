@@ -245,6 +245,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$entry_id = (string) $asset->attributes()->entry_id;
 		$title = strlen($label) > 0 ? $label : $filename;
 		$author = (string) $asset->attributes()->created_by;
+		$created_on = date('Y-m-d H:i:s', strtotime($asset->attributes()->created_on));
 
 		// Skip, if it's a thumbnail
 		if ($parent > 0) {
@@ -255,6 +256,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		     'post_content' => '',
 		     'post_status' => 'inherit',
 			 'post_author' => isset($mappings['user'][$author]) ? $mappings['user'][$author] : null,
+			 'post_date' => $created_on,
 		);
 		
 		// Grab the mime type from the file extension if it doesnt exist
@@ -270,39 +272,42 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			$attachment['post_title'] = $title;
 		}
 		
-		// This is really how they are exported
-		$filename = $id.'-'.$filename;
+		$attachment = apply_filters('mtbi_pre_insert_attachment', $attachment);
 		
-		// Move the file into the uploads directory for this site
-		$directory = wp_upload_dir();
-		if (file_exists(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename)) {
-			rename(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename, $this->_path.$filename);
-			$filepath = $this->_path.$filename;
-		}
-		else {
-			// Get the file from URLs
-			$base_url = (string) $asset->attributes()->url;
-			if (!empty($base_url)) {
-				$file_url = str_replace('%r', $this->_siteurl, $base_url);
-				// File url needs to contain http
-				if (strpos($file_url, 'http') === false) {
-					$file_url = trailingslashit($this->_siteurl).ltrim($file_url, '/');
-				}
-				$filepath = $this->_download_broken_url($file_url);
+		if (!post_exists($attachment['post_title'], '', $attachment['post_date'])) {
+		
+			// This is really how they are exported
+			$filename = $id.'-'.$filename;
+		
+			// Move the file into the uploads directory for this site
+			$directory = wp_upload_dir();
+			if (file_exists(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename)) {
+				rename(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename, $this->_path.$filename);
+				$filepath = $this->_path.$filename;
 			}
+			else {
+				// Get the file from URLs
+				$base_url = (string) $asset->attributes()->url;
+				if (!empty($base_url)) {
+					$file_url = str_replace('%r', $this->_siteurl, $base_url);
+					// File url needs to contain http
+					if (strpos($file_url, 'http') === false) {
+						$file_url = trailingslashit($this->_siteurl).ltrim($file_url, '/');
+					}
+					$filepath = $this->_download_broken_url($file_url);
+				}
 		
 
-		}
+			}
 
-		if (!empty($filepath)) {
-			$attachment = apply_filters('mtbi_pre_insert_attachment', $attachment);
-			$attach_id = wp_insert_attachment($attachment, $filepath, null);
-			require_once(ABSPATH . 'wp-admin/includes/image.php');
-			$attach_data = wp_generate_attachment_metadata($attach_id, $filepath);
-			wp_update_attachment_metadata($attach_id, $attach_data);
-			$mappings['assets'][$id] = $attach_id;
+			if (!empty($filepath)) {
+				$attach_id = wp_insert_attachment($attachment, $filepath, null);
+				require_once(ABSPATH . 'wp-admin/includes/image.php');
+				$attach_data = wp_generate_attachment_metadata($attach_id, $filepath);
+				wp_update_attachment_metadata($attach_id, $attach_data);
+				$mappings['assets'][$id] = $attach_id;
+			}
 		}
-	
 	}
 	
 	function _import_mt_image($path, $post, &$mappings) {

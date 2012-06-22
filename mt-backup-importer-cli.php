@@ -212,6 +212,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		// check if user already exists
 		$user_id = username_exists($username);
 		if (!$user_id) {
+			$data = apply_filters('mtbi_pre_insert_user', $data);
 			$user_id = wp_insert_user($data);
 		}
 		
@@ -274,7 +275,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$directory = wp_upload_dir();
 		rename(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename, $this->_path.$filename);
 		$filepath = $this->_path.$filename;
-
+		$attachment = apply_filters('mtbi_pre_insert_attachment', $attachment);
 		$attach_id = wp_insert_attachment($attachment, $filepath, null);
 		require_once(ABSPATH . 'wp-admin/includes/image.php');
 		$attach_data = wp_generate_attachment_metadata($attach_id, $filepath);
@@ -627,7 +628,8 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			$this->debug_msg('Post \''.stripslashes($post->post_title).'\' already exists.');
 		} else {
 			$this->debug_msg('Importing post \''.stripslashes($post->post_title).'\'');
-			apply_filters('mtbi_pre_insert_post', $post);
+			// Pass by reference, assignement for sanity
+			$post = apply_filters('mtbi_pre_insert_post', $post);
 			$post_id = wp_insert_post($post);
 			if (is_wp_error($post_id)) {
 				$this->debug_msg('ERROR: '.$post_id->get_error_message());

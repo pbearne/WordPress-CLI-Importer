@@ -405,7 +405,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		} else {
 			$cat_id = $category->cat_ID;
 		}
-		$mappings['categories'][(string)$id] = $cat_id;
+		$mappings['categories'][(string)$id] = intval($cat_id);
 
 	}
 

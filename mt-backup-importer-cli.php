@@ -209,10 +209,12 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			$data['user_pass'] = wp_generate_password();
 		}
 
+		$data = apply_filters('mtbi_pre_insert_user', $data);
+		$username = $data['user_login'];
+
 		// check if user already exists
 		$user_id = username_exists($username);
 		if (!$user_id) {
-			$data = apply_filters('mtbi_pre_insert_user', $data);
 			$user_id = wp_insert_user($data);
 		}
 		
@@ -624,12 +626,12 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$post = add_magic_quotes($post);
 		$post = (object) $post;
 
+		$post = apply_filters('mtbi_pre_insert_post', $post);
 		if ( $post_id = post_exists($post->post_title, '', $post->post_date) ) {
 			$this->debug_msg('Post \''.stripslashes($post->post_title).'\' already exists.');
 		} else {
 			$this->debug_msg('Importing post \''.stripslashes($post->post_title).'\'');
 			// Pass by reference, assignement for sanity
-			$post = apply_filters('mtbi_pre_insert_post', $post);
 			$post_id = wp_insert_post($post);
 			if (is_wp_error($post_id)) {
 				$this->debug_msg('ERROR: '.$post_id->get_error_message());

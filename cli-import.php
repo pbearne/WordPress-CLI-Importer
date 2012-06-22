@@ -20,7 +20,6 @@ require_once( ABSPATH . 'wp-admin/includes/admin.php' );
 ob_end_clean();
 
 set_time_limit( 0 );
-ini_set( 'memory_limit', '512m' );
 
 if (!class_exists( 'WP_Importer')) {
 	$class_wp_importer = ABSPATH . 'wp-admin/includes/class-wp-importer.php';

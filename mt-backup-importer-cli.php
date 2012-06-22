@@ -359,6 +359,9 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$id = $tag->attributes()->id;
 		$n8d_id = $tag->attributes()->n8d_id;
 		$name = $tag->attributes()->name;
+		
+		$name = apply_filters('mtbi_tag_name', $name);
+		
 		$mappings['tags'][(string)$id] = (string)$name;
 
 	}
@@ -392,6 +395,8 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		  'cat_name' => $label,
 		  'category_nicename' => $basename
 		);
+		$data = apply_filters('mtbi_category_data', $data);
+		
 		$category = get_category_by_slug($basename);
 		if (!$category) {
             $wp_error = array();
@@ -467,6 +472,8 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			if (!comment_exists($comment['comment_author'], $comment['comment_date'])) {
 				$comment['comment_post_ID'] = $mappings['posts'][$entry_id];
 				$comment = wp_filter_comment($comment);
+				$comment = apply_filters('mtbi_pre_insert_comment', $comment);
+				
 				wp_insert_comment($comment);
 			}
 		}
@@ -620,6 +627,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 			$this->debug_msg('Post \''.stripslashes($post->post_title).'\' already exists.');
 		} else {
 			$this->debug_msg('Importing post \''.stripslashes($post->post_title).'\'');
+			apply_filters('mtbi_pre_insert_post', $post);
 			$post_id = wp_insert_post($post);
 			if (is_wp_error($post_id)) {
 				$this->debug_msg('ERROR: '.$post_id->get_error_message());

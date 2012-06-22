@@ -1,5 +1,7 @@
 <?php
 
+ini_set( 'memory_limit', '1024m' );
+
 if(file_exists(dirname(__file__).'/local-config.php')) {
 	include_once(dirname(__file__).'/local-config.php');
 }
@@ -9,6 +11,5 @@ if(file_exists(dirname(__file__).'/local-config.php')) {
 
 @define( 'WP_IMPORTING', true );
 @define( 'WP_DEBUG', true );
-
 
 ?>

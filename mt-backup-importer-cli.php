@@ -275,14 +275,33 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		
 		// Move the file into the uploads directory for this site
 		$directory = wp_upload_dir();
-		rename(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename, $this->_path.$filename);
-		$filepath = $this->_path.$filename;
-		$attachment = apply_filters('mtbi_pre_insert_attachment', $attachment);
-		$attach_id = wp_insert_attachment($attachment, $filepath, null);
-		require_once(ABSPATH . 'wp-admin/includes/image.php');
-		$attach_data = wp_generate_attachment_metadata($attach_id, $filepath);
-		wp_update_attachment_metadata($attach_id, $attach_data);
-		$mappings['assets'][$id] = $attach_id;
+		if (file_exists(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename)) {
+			rename(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename, $this->_path.$filename);
+			$filepath = $this->_path.$filename;
+		}
+		else {
+			// Get the file from URLs
+			$base_url = (string) $asset->attributes()->url;
+			if (!empty($base_url)) {
+				$file_url = str_replace('%r', $this->_siteurl, $base_url);
+				// File url needs to contain http
+				if (strpos($file_url, 'http') === false) {
+					$file_url = trailingslashit($this->_siteurl).ltrim($file_url, '/');
+				}
+				$filepath = $this->_download_broken_url($file_url);
+			}
+		
+
+		}
+
+		if (!empty($filepath)) {
+			$attachment = apply_filters('mtbi_pre_insert_attachment', $attachment);
+			$attach_id = wp_insert_attachment($attachment, $filepath, null);
+			require_once(ABSPATH . 'wp-admin/includes/image.php');
+			$attach_data = wp_generate_attachment_metadata($attach_id, $filepath);
+			wp_update_attachment_metadata($attach_id, $attach_data);
+			$mappings['assets'][$id] = $attach_id;
+		}
 	
 	}
 	

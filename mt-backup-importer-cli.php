@@ -247,6 +247,17 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$author = (string) $asset->attributes()->created_by;
 		$created_on = date('Y-m-d H:i:s', strtotime($asset->attributes()->created_on));
 
+		// Grab file URL for backup fetching and replacement
+		$base_url = (string) $asset->attributes()->url;
+		$old_file_url = false;
+		if (!empty($base_url)) {
+			$old_file_url = str_replace('%r/', trailingslashit($this->_siteurl), $base_url);
+			// File url needs to contain start with some form of http
+			if (strpos(strtolower($old_file_url), 'http') != 0) {
+				$old_file_url = trailingslashit($this->_siteurl).ltrim($old_file_url, '/');
+			}
+		}
+		
 		// Skip, if it's a thumbnail
 		if ($parent > 0) {
 			return;
@@ -274,9 +285,9 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		
 		$attachment = apply_filters('mtbi_pre_insert_attachment', $attachment);
 		
-		if (!post_exists($attachment['post_title'], '', $attachment['post_date'])) {
+		if (!($attach_id = post_exists($attachment['post_title'], '', $attachment['post_date']))) {
 		
-			// This is really how they are exported
+			// This is really how they are exported in the zip backup
 			$filename = $id.'-'.$filename;
 		
 			// Move the file into the uploads directory for this site
@@ -285,19 +296,9 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 				rename(trailingslashit(WP_CONTENT_DIR).'imports/'.$filename, $this->_path.$filename);
 				$filepath = $this->_path.$filename;
 			}
-			else {
+			else if (!empty($old_file_url)){
 				// Get the file from URLs
-				$base_url = (string) $asset->attributes()->url;
-				if (!empty($base_url)) {
-					$file_url = str_replace('%r', $this->_siteurl, $base_url);
-					// File url needs to contain http
-					if (strpos($file_url, 'http') === false) {
-						$file_url = trailingslashit($this->_siteurl).ltrim($file_url, '/');
-					}
-					$filepath = $this->_download_broken_url($file_url);
-				}
-		
-
+				$filepath = $this->_download_broken_url($old_file_url);
 			}
 
 			if (!empty($filepath)) {
@@ -305,8 +306,20 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 				require_once(ABSPATH . 'wp-admin/includes/image.php');
 				$attach_data = wp_generate_attachment_metadata($attach_id, $filepath);
 				wp_update_attachment_metadata($attach_id, $attach_data);
-				$mappings['assets'][$id] = $attach_id;
+				$mappings['assets'][$id] = array('id' => $attach_id);
 			}
+		}
+		
+		// Keep track of assets, even if it has already been imported and replace the content of posts
+		if (!empty($attach_id) && !is_wp_error($attach_id) && !empty($mappings['assets'][$id])) {
+			$new_url = wp_get_attachment_url($attach_id);
+			// Only set mapping data if there is a new and old url.
+			if (!empty($old_file_url) && !empty($new_url)) {
+				$mappings['assets'][$id]['new_url'] = $new_url;
+				$mappings['assets'][$id]['old_url'] = $old_file_url;
+				// Replace the old URL with the new URL in the content
+				$this->_replace_content_asset($old_file_url, $new_url);
+			}			
 		}
 	}
 	
@@ -467,7 +480,7 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		$object_ds = (string) $objectasset->attributes()->object_ds;
 		$object_id = (string) $objectasset->attributes()->object_id;
 		if ($object_ds == 'entry') {
-			wp_update_post(array('ID' => $mappings['assets'][$asset_id], 'post_parent' => $mappings['posts'][$object_id]));
+			wp_update_post(array('ID' => $mappings['assets'][$asset_id]['id'], 'post_parent' => $mappings['posts'][$object_id]));
 		}
 	}
 
@@ -681,6 +694,17 @@ class MT_Backup_Importer_CLI extends CLI_Import{
 		);
 	}
 	
+	function _replace_content_asset($new_url, $old_url) {
+		global $wpdb;
+		$wpdb->query(
+			$wpdb->prepare("
+				UPDATE $wpdb->posts
+				SET `post_content` = REPLACE(`post_content`, %s, %s)",
+				$old_url,
+				$new_url
+			)
+		);
+	}
 	
 	/**
 	 * Removes invalid XML characters for simpleXML Parsing

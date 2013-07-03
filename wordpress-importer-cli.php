@@ -376,13 +376,13 @@ class WordPress_CLI_Import extends WP_Import {
 			arsort( $levs );
 			$lev = array_pop( $levs );
 			if ( 0 == $lev ) {
-				$closest = $user->user_id;
+				$closest = $user->ID;
 				$shortest = 0;
 				break;
 			}
 	
 			if ( ( $lev <= $shortest || $shortest < 0 ) && $lev <= $threshold ) {
-				$closest  = $user->user_id;
+				$closest  = $user->ID;
 				$shortest = $lev;
 			}
 			$shortestavg[] = $lev;
